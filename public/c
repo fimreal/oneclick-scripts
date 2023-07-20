@@ -11,17 +11,24 @@
 #
 # NOTE about Bash Traps and Pitfalls:
 #
-# 1. DO NOT combine var declaration and assignment which value supplied by subshell!
+# 1. DO NOT combine var declaration and assignment which value supplied by subshell in ONE line!
 #    for example: readonly var1=$(echo value1)
-#                 local var1=$(echo value1)
+#                 local var2=$(echo value1)
 #
-#    declaration make exit code of assignment to be always 0,
+#    Because the combination make exit code of assignment to be always 0,
 #      aka. the exit code of command in subshell is discarded.
 #      tested on bash 3.2.57/4.2.46
+#
+#    solution is separation of var declaration and assignment:
+#           var1=$(echo value1)
+#           readonly var1
+#           local var2
+#           var2=$(echo value1)
 set -eEuo pipefail
 
-# NOTE: DO NOT declare var PROG as readonly, because its value is supplied by subshell.
+# NOTE: DO NOT declare var PROG as readonly in ONE line!
 PROG="$(basename "$0")"
+readonly PROG
 readonly PROG_VERSION='2.5.0-dev'
 
 ################################################################################
@@ -33,26 +40,28 @@ readonly eend=$'\033[0m' # escape end
 readonly nl=$'\n'        # new line
 
 redEcho() {
-    [ -t 1 ] && echo "${ec}[1;31m$*$eend" || echo "$*"
+  [ -t 1 ] && echo "${ec}[1;31m$*$eend" || echo "$*"
 }
 
 usage() {
-    local -r exit_code="${1:-0}"
-    (($# > 0)) && shift
-    # shellcheck disable=SC2015
-    [ "$exit_code" != 0 ] && local -r out=/dev/stderr || local -r out=/dev/stdout
+  local -r exit_code="${1:-0}"
+  (($# > 0)) && shift
+  # shellcheck disable=SC2015
+  [ "$exit_code" != 0 ] && local -r out=/dev/stderr || local -r out=/dev/stdout
 
-    (($# > 0)) && redEcho "$*$nl" >$out
+  (($# > 0)) && redEcho "$*$nl" >$out
 
-    cat >$out <<EOF
+  cat >$out <<EOF
 Usage: ${PROG} [OPTION]... [command [command_args ...]]
 Run command and put output to system clipper.
 If no command is specified, read from stdin(pipe).
+
 Example:
   ${PROG} echo "hello world!"
   ${PROG} grep -i 'hello world' menu.h main.c
   set | ${PROG}
   ${PROG} -q < ~/.ssh/id_rsa.pub
+
 Options:
   -k, --keep-eol  do not trim new line at end of file
   -q, --quiet     suppress all normal output, default is false
@@ -60,12 +69,12 @@ Options:
   -V, --version   display version information and exit
 EOF
 
-    exit "$exit_code"
+  exit "$exit_code"
 }
 
 progVersion() {
-    echo "$PROG $PROG_VERSION"
-    exit
+  echo "$PROG $PROG_VERSION"
+  exit
 }
 
 ################################################################################
@@ -76,67 +85,69 @@ quiet=false
 eol=-n
 declare -a args=()
 while [ $# -gt 0 ]; do
-    case "$1" in
-    -k | --keep-eol)
-        eol=
-        shift
-        ;;
-    -q | --quiet)
-        quiet=true
-        shift
-        ;;
-    -h | --help)
-        usage
-        ;;
-    -V | --version)
-        progVersion
-        ;;
-    --)
-        shift
-        args=(${args[@]:+"${args[@]}"} "$@")
-        break
-        ;;
-    -*)
-        usage 2 "${PROG}: unrecognized option '$1'"
-        ;;
-    *)
-        # if not option, treat all follow args as command
-        args=(${args[@]:+"${args[@]}"} "$@")
-        break
-        ;;
-    esac
+  case "$1" in
+  -k | --keep-eol)
+    eol=
+    shift
+    ;;
+  -q | --quiet)
+    quiet=true
+    shift
+    ;;
+  -h | --help)
+    usage
+    ;;
+  -V | --version)
+    progVersion
+    ;;
+  --)
+    shift
+    args=(${args[@]:+"${args[@]}"} "$@")
+    break
+    ;;
+  -*)
+    usage 2 "${PROG}: unrecognized option '$1'"
+    ;;
+  *)
+    # if not option, treat all follow args as command
+    args=(${args[@]:+"${args[@]}"} "$@")
+    break
+    ;;
+  esac
 done
+
+readonly eol quiet args
 
 ################################################################################
 # biz logic
 ################################################################################
 
 copy() {
-    case "$(uname)" in
-    Darwin*)
-        pbcopy
-        ;;
-    CYGWIN* | MINGW*)
-        clip
-        ;;
-    *)
-        xsel -b
-        ;;
-    esac
+  case "$(uname)" in
+  Darwin*)
+    pbcopy
+    ;;
+  CYGWIN* | MINGW*)
+    clip
+    ;;
+  *)
+    xsel -b
+    ;;
+  esac
 }
 
 teeAndCopy() {
-    # shellcheck disable=SC2015
-    $quiet && local -r out=/dev/null || local -r out=/dev/stdout
-    tee >(
-        content="$(cat)"
-        # shellcheck disable=SC2086
-        echo $eol "$content" | copy
-    ) >$out
+  # shellcheck disable=SC2015
+  $quiet && local -r out=/dev/null || local -r out=/dev/stdout
+  tee >(
+    content="$(cat)"
+    # shellcheck disable=SC2086
+    echo $eol "$content" | copy
+  ) >$out
 }
 
 if [ ${#args[@]} -eq 0 ]; then
-    teeAndCopy
+  teeAndCopy
 else
-    "${args[@]}" | teeAndCopy
+  "${args[@]}" | teeAndCopy
 fi
