@@ -1,0 +1,117 @@
+#!/bin/env sh
+
+if [ -z $1 ]; then
+    _r=${mirror}
+else
+    _r=$1
+fi
+
+case "$_r" in
+aliyun)
+    # https://developer.aliyun.com/mirror/kubernetes/
+    KUBERNETES_GPG="http://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg"
+    KUBERNETES_APT="http://mirrors.aliyun.com/kubernetes/apt"
+    KUBERNETES_YUM="https://mirrors.aliyun.com/kubernetes"
+    ;;
+aliyuns)
+    # https
+    KUBERNETES_GPG="https://mirrors.aliyun.com/kubernetes/apt/doc/apt-key.gpg"
+    KUBERNETES_APT="https://mirrors.aliyun.com/kubernetes/apt"
+    KUBERNETES_YUM="https://mirrors.aliyun.com/kubernetes"
+    ;;
+# ustc)
+#     # https://mirrors.tuna.tsinghua.edu.cn/help/kubernetes/
+#     KUBERNETES_GPG="https://cfdown.2fw.top/https://raw.githubusercontent.com/EagleChen/kubernetes_init/master/kube_apt_key.gpg"
+#     KUBERNETES_APT="http://mirrors.ustc.edu.cn/kubernetes/apt"
+#     KUBERNETES_YUM=""
+#     ;;
+tuna)
+    KUBERNETES_GPG="https://cfdown.2fw.top/https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    KUBERNETES_APT="https://mirrors.tuna.tsinghua.edu.cn/kubernetes/apt"
+    KUBERNETES_YUM="https://mirrors.tuna.tsinghua.edu.cn/kubernetes"
+    ;;
+*)
+    echo "use default google package repo"
+    # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-kubeadm-kubelet-and-kubectl
+    KUBERNETES_GPG="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
+    KUBERNETES_APT="https://apt.kubernetes.io/"
+    KUBERNETES_APT="https://packages.cloud.google.com"
+    ;;
+esac
+
+GetPakManager() {
+    if command -v yum >/dev/null 2>&1; then
+        PACKAGE_MANAGER=yum
+    elif command -v dnf >/dev/null 2>&1; then
+        PACKAGE_MANAGER=dnf
+    elif command -v pacman >/dev/null 2>&1; then
+        PACKAGE_MANAGER=brew
+    elif command -v zypper >/dev/null 2>&1; then
+        PACKAGE_MANAGER=brew
+    elif command -v brew >/dev/null 2>&1; then
+        PACKAGE_MANAGER=brew
+    elif command -v apt-get >/dev/null 2>&1; then
+        PACKAGE_MANAGER=apt-get
+    else
+        PACKAGE_MANAGER=""
+    fi
+    echo $PACKAGE_MANAGER
+}
+
+GetStableRelease() {
+    timeout 5 curl -sSL https://dl.k8s.io/release/stable.txt
+}
+
+aptAddkubernetesRepo() {
+    GPG=$1
+    MIRROR=$2
+
+    gpgfile="/etc/apt/keyrings/kubernetes-keyring.gpg"
+
+    # (optional) Update the apt package index and install packages needed to use the Kubernetes apt repository
+    # apt-get update
+    # apt-get install -y apt-transport-https ca-certificates curl
+
+    # Download the public signing key
+    mkdir -p /etc/apt/keyrings
+    rm -f ${gpgfile}
+    curl -fsSL ${GPG} | gpg --dearmor -o ${gpgfile}
+
+    # Add the Kubernetes apt repository
+    echo "deb [signed-by=${gpgfile}] ${MIRROR} kubernetes-xenial main" >/etc/apt/sources.list.d/kubernetes.list
+
+    # Update apt package index, install kubelet, kubeadm and kubectl, and pin their version
+    # apt-get update
+    # apt-get install -y kubelet kubeadm kubectl
+    # apt-mark hold kubelet kubeadm kubectl
+}
+
+yumAddkubernetesRepo() {
+    MIRROR=$1
+    cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=${MIRROR}/yum/repos/kubernetes-el7-\$basearch
+enabled=1
+EOF
+
+    # yum install -y kubelet kubeadm kubectl --disableexcludes=kubernetes
+    # systemctl enable --now kubelet
+}
+
+case $(GetPakManager) in
+yum | dnf)
+    yumAddkubernetesRepo ${KUBERNETES_YUM}
+    ;;
+apt-get)
+    aptAddkubernetesRepo ${KUBERNETES_GPG} ${KUBERNETES_APT}
+    ;;
+*)
+    echo "Sorry, not support your OS now."
+    exit 1
+    ;;
+esac
+
+echo "Setting kubernetes apt/yum mirror: ${_r}\n"
+
+echo "current stable version is $(GetStableRelease)"
