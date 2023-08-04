@@ -35,7 +35,7 @@ tuna)
     # https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/#installing-kubeadm-kubelet-and-kubectl
     KUBERNETES_GPG="https://packages.cloud.google.com/apt/doc/apt-key.gpg"
     KUBERNETES_APT="https://apt.kubernetes.io/"
-    KUBERNETES_APT="https://packages.cloud.google.com"
+    KUBERNETES_YUM="https://packages.cloud.google.com"
     ;;
 esac
 
