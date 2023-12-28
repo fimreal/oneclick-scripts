@@ -83,7 +83,7 @@ if ${use_color}; then
             # but before setting $PS1
             RET=$?
             change_window_title
-            if [ $RET -gt 0 ]; then
+            if [ $RET -gt 0 ] && [ $RET -ne 130 ]; then
                 PS1+="\[\033[01;35m\]$RET \[\033[01;31m\]\h \[\033[01;34m\]\w \[\033[00m\]\$ "
             else
                 PS1+="\[\033[01;31m\]\h \[\033[01;34m\]\w \[\033[00m\]\$ "
@@ -158,13 +158,30 @@ elif command -v vi &>/dev/null; then
     export EDITOR=vi
 fi
 
-# goproxy
+##========== golang ==========##
 export HUGO_MODULE_PROXY=https://goproxy.cn/,direct
 export GOPROXY=https://goproxy.cn,direct \
        GO111MOUDULE=on \
      # GOPATH=~/go:~/OneDrive/Code_root/golang:$GOPATH
 
-##========== alias ==========##
+##========== kubernetes ==========##
+[ -r ~/.kube ] && export KUBECONFIG="$(ls -1 ~/.kube/config* | tr '\n' ':')"
+[ -r ~/.krew ] && export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+alias kgp='kubectl get pod --sort-by=".metadata.creationTimestamp"'
+alias kga='kubectl get pods --include-uninitialized' # 包括未初始化的
+alias kge='kubectl get pod --sort-by=".metadata.creationTimestamp" --field-selector=status.phase!=Running'
+alias kgr='kubectl get pods --sort-by=".status.containerStatuses[0].restartCount"'
+alias kgi='kubectl get pods  -o jsonpath='"'"'{range .items[*]}{@.metadata.name}{" "}{@.spec.containers[*].image}{"\n"}{end}'"'"''
+# K8STOKEN=$(kubectl -n kube-system describe secret default| awk '$1=="token:"{print $2}') \
+alias ktk='kubectl -n kube-system describe secret default| awk '"'"'$1=="token:"{print $2}'"'"''
+alias ktn='kubectl top node'
+# alias kdn='kubectl get pod -o wide --all-namespaces | awk '{if($4!="Running"){cmd="kubectl -n "$1" delete pod "$2; system(cmd)}}''
+# app
+# alias nginx='kubectl exec $(kubectl get pods -o jsonpath='"'"'{range .items[*]}{@.metadata.name}{"\n"}{end}'"'"' -l app=openresty) -- nginx '
+# alias headscale='kubectl exec -n pnet deployments/headscale -- headscale'
+# alias tailscale='kubectl exec -n pnet daemonsets/tailscaled -- tailscale'
+
+##========== common alias ==========##
 alias la='ls -AF'
 alias ll='ls -lhF'
 alias lla='ls -lAhF'
@@ -172,18 +189,8 @@ alias pgrep="fgrep -lf"
 alias grep#='grep -v "^#"'
 alias grep##='egrep -v "^#|^$"'
 alias pyweb="python3 -m http.server"
-# alias toolbox='toolbox --bind /server:/server --bind $PWD:/root/current_path/'
+# alias toolbox='toolbox --bind /var/server:/var/server --bind $PWD:/root/current_path/'
 alias lzd="docker run -it --rm -v /var/run/docker.sock:/var/run/docker.sock lazyteam/lazydocker"
-# K8STOKEN=$(kubectl -n kube-system describe secret default| awk '$1=="token:"{print $2}') \
-alias kgp='kubectl get pod --sort-by=".metadata.creationTimestamp"'
-alias kga='kubectl get pods --include-uninitialized' # 包括未初始化的
-alias kge='kubectl get pod --sort-by=".metadata.creationTimestamp" --field-selector=status.phase!=Running'
-alias kgr='kubectl get pods --sort-by=".status.containerStatuses[0].restartCount"'
-alias kgi='kubectl get pods  -o jsonpath='"'"'{range .items[*]}{@.metadata.name}{" "}{@.spec.containers[*].image}{"\n"}{end}'"'"''
-alias ktk='kubectl -n kube-system describe secret default| awk '"'"'$1=="token:"{print $2}'"'"''
-alias ktn='kubectl top node'
-# alias kdn='kubectl get pod -o wide --all-namespaces | awk '{if($4!="Running"){cmd="kubectl -n "$1" delete pod "$2; system(cmd)}}''
-# alias nginx='kubectl exec $(kubectl get pods -o jsonpath='"'"'{range .items[*]}{@.metadata.name}{"\n"}{end}'"'"' -l app=openresty) -- nginx '
 alias gitlog="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
 alias gomodoff="go env -w GO111MODULE=off"
 alias gomodon="go env -w GO111MODULE=on"
@@ -191,10 +198,11 @@ alias jet="step crypto jwt inspect --insecure <<<"
 
 if command -v podman &>/dev/null; then
     alias docker='echo '\''podman: hey, Don not use docker, '\'''
+    alias lzd="podman run -it --rm -v /var/run/docker.sock:/var/run/docker.sock lazyteam/lazydocker"
 fi
 
 ##========== completion ==========##
-for cliname in kubeadm kubectl helm argocd flux; do
+for cliname in kubeadm kubectl helm argocd flux cobra-cli; do
     if command -v $cliname &>/dev/null; then
         source <($cliname completion bash)
     fi
@@ -227,6 +235,7 @@ function proxy_off() {
     echo "proxy disabled now"
 }
 
+# ez proxy
 function with_proxy() {
     no_proxy="localhost,127.0.0.1,localaddress,.localdomaiin.com" https_proxy=http://127.0.0.1:1080 http_proxy=http://127.0.0.1:1080 all_proxy=socks5://127.0.0.1:1080  "$@"
 }
@@ -236,3 +245,15 @@ myip() {
     curl epurs.com/ip
     # dig +short myip.opendns.com @resolver1.opendns.com
 }
+
+# tiny PS1
+function tinyps1() {
+    if [[ ${EUID} == 0 ]] ; then
+        PS1='\[\033[01;34m\]\W \#\[\033[00m\] '
+    else
+        PS1='\[\033[01;34m\]\W \$\[\033[00m\] '
+    fi
+}
+if [[ ${TERM_PROGRAM} == "vscode" ]] ; then
+    tinyps1
+fi
