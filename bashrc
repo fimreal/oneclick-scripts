@@ -257,3 +257,10 @@ function tinyps1() {
 if [[ ${TERM_PROGRAM} == "vscode" ]] ; then
     tinyps1
 fi
+
+# k8s log
+function klog() {
+    local label=$1
+    shift
+    kubectl logs -l app=$label --all-containers=true $@
+}
