@@ -65,15 +65,6 @@ change_window_title() {
 }
 
 if ${use_color}; then
-    # vscode need tiny shell
-    if [[ ${TERM_PROGRAM} == "vscode" ]]; then
-        if [[ ${EUID} == 0 ]]; then
-            PS1='\[\033[01;34m\]\W \#\[\033[00m\] '
-        else
-            PS1='\[\033[01;34m\]\W \$\[\033[00m\] '
-        fi
-    fi
-
     if [[ ${EUID} == 0 ]]; then
         # Create a function to be used with $PROMPT_COMMAND
         root() {
