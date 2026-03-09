@@ -1,0 +1,75 @@
+# Fimreal's ashrc for Alpine (BusyBox ash)
+# Converted from bashrc
+
+case $- in
+    *i*) ;;
+    *) return;;
+esac
+
+export HISTSIZE=100000
+export HISTFILESIZE=100000
+export HISTTIMEFORMAT="%F %T "
+
+# PS1
+if [ "$EUID" = "0" ] || [ "$USER" = "root" ]; then
+    PS1='\[\033[01;31m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\] # '
+else
+    PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\] \$ '
+fi
+
+# 颜色别名 (保持不变)
+alias diff='diff --color=auto'
+alias egrep='grep -E --color=auto'
+alias grep='grep --color=auto'
+alias fgrep='grep -F --color=auto'
+alias ip='ip --color=auto'
+alias ls='ls --color=auto --time-style=long-iso'
+
+
+unset use_color
+
+##========== ENV ==========##
+# iterm2
+export BASH_SILENCE_DEPRECATION_WARNING=1
+# timezone
+export TZ='Asia/Shanghai'
+# PATH
+export PATH=$PATH:/root/scripts:/root/bin
+# EDITOR
+if command -v vim >/dev/null 2>&1; then
+    export EDITOR=vim
+    export KUBE_EDITOR="vim"
+elif command -v vi >/dev/null 2>&1; then
+    export EDITOR=vi
+fi
+
+##========== kubernetes ==========##
+[ -r ~/.kube ] && export KUBECONFIG="$(ls -1 ~/.kube/config* | tr '\n' ':')"
+[ -r ~/.krew ] && export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+alias kgp='kubectl get pod --sort-by=".metadata.creationTimestamp"'
+alias kga='kubectl get pods --include-uninitialized'
+alias kge='kubectl get pod --sort-by=".metadata.creationTimestamp" --field-selector=status.phase!=Running'
+alias kgr='kubectl get pods --sort-by=".status.containerStatuses[0].restartCount"'
+# 简化复杂的 JSONPath
+alias kgi='kubectl get pods -o custom-columns=NAME:.metadata.name,IMAGES:.spec.containers[*].image'
+alias ktk='kubectl -n kube-system describe secret default | awk '"'"'$1=="token:"{print $2}'"'"''
+alias ktn='kubectl top node'
+
+##========== common alias ==========##
+alias la='ls -AF'
+alias ll='ls -lhF'
+alias lla='ls -lAhF'
+alias pgrep="grep -l"
+alias grep#='grep -v "^#"'
+alias grep##='egrep -v "^#|^$"'
+alias pyweb="python3 -m http.server"
+alias gitlog="git log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit"
+
+# ez proxy
+with_proxy() {
+    no_proxy="localhost,127.0.0.1,localaddress,.localdomaiin.com" \
+    https_proxy=http://127.0.0.1:1080 \
+    http_proxy=http://127.0.0.1:1080 \
+    all_proxy=socks5://127.0.0.1:1080 \
+    "$@"
+}
